@@ -2,7 +2,7 @@
 
 ## 上游更新
 
-检查官方 x264、t_mod_New 的原始提交和扩展差异，更新 lock 中提交、开发包地址、SHA256 与 DLL 列表。不要对有本地修改的 vendor 强制 reset；需要时在新 checkout 中构建。prepare 在提交不匹配时会报错。
+检查官方 x264、t_mod_New、官方 x265 的原始提交和扩展差异，更新 lock 中提交、开发包地址、SHA256 与 DLL 列表。不要对有本地修改的 vendor 强制 reset；需要时在新 checkout 中构建。prepare 在提交不匹配时会报错。
 
 确认 patches 可应用。FFmpeg API 变更时修复相关输入或滤镜代码，不退回旧库来冒充更新。保持源码 Git 历史，避免版本号变成 x 或错误的修订号。
 
@@ -20,7 +20,7 @@
 
 ## release 约定
 
-ZIP 名为 `maruko_tool_update-x264-x64-8bit-<x264版本>-ffmpeg-<FFmpeg版本>-<日期>.zip`；EXE 始终保留原名称。
+ZIP 名为 `maruko_tool_update-x64-8bit-x264-<x264版本>-x265-<x265版本>-ffmpeg-<FFmpeg版本>-<日期>.zip`；EXE 始终保留原名称。
 
 构建脚本只生成归档。维护者完成验收后创建 GitHub release 并上传资产，版本说明列出更新组件、覆盖清单、验证和限制。
 

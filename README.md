@@ -9,9 +9,10 @@
 | 组件 | 状态 |
 |---|---|
 | Windows x64 / x264 8bit | 已构建并通过命令行兼容性验证 |
+| Windows x64 / x265 8bit | 已构建，使用小丸原参数和 FFmpeg 管道调用 |
 | Windows x64 / FFmpeg 9.0.2 | 提供独立 ffmpeg.exe 及运行依赖 |
 
-编码器基于 x264 的 `t_mod_New` 分支，保留额外 AQ、视觉优化、字幕和滤镜扩展，使用 FFmpeg 9.0.2 库读取视频和进行缩放。
+x264 基于 `t_mod_New` 分支，保留额外 AQ、视觉优化、字幕和滤镜扩展，使用 FFmpeg 9.0.2 库读取视频和进行缩放。x265 基于官方源码 `4.2+37-b81f650e2`，由小丸调用 FFmpeg 生成 Y4M 数据后通过管道编码为 HEVC。
 
 ## 安装更新包
 
@@ -20,11 +21,12 @@
 3. 将包内 `tools/` 的全部文件复制到小丸安装目录的 `tools/`，覆盖同名文件。
 4. 启动小丸，选择对应编码器。
 
-当前 8bit 包的覆盖清单：
+8bit 包的覆盖清单：
 
 | 文件 | 作用 |
 |---|---|
 | `x264_64-8bit.exe` | 替换 64 位 8bit 编码器 |
+| `x265_64-8bit[gcc].exe` | 替换小丸原 64 位 8bit x265 编码器 |
 | `ffmpeg.exe` | 替换小丸调用的 FFmpeg，用于音频处理及其他 FFmpeg 任务 |
 | `avcodec-63.dll` | 解码库 |
 | `avdevice-63.dll` | FFmpeg 设备输入输出库 |
@@ -34,7 +36,7 @@
 | `swresample-7.dll` | FFmpeg 库的间接依赖 |
 | `swscale-10.dll` | 缩放和像素格式转换 |
 
-九个文件必须一起使用。字幕继续使用小丸原有 `VSFilter64.dll`，最终合并继续使用原 `MP4Box.exe`。音频处理由包内的新版 `ffmpeg.exe` 执行。
+十个文件一同复制到 `tools/`。x264 字幕使用小丸原 `VSFilter64.dll`；x265 的解码、缩放和字幕由包内 FFmpeg 处理，最终合并使用原 `MP4Box.exe`。安装后在小丸中选择对应编码器即可沿用原参数。
 
 未来依赖升级可能改变 DLL 名称；以当次 manifest 和 README 为准，不混用不同包的 EXE、DLL。恢复时还原备份的 x264 和 ffmpeg.exe，不盲目删除其他工具可能使用的 DLL。
 
@@ -47,9 +49,10 @@
 - Git for Windows，包含 Git Bash。
 - MinGW-w64 x64 工具链，包含 GCC 和 `mingw32-make`。
 - NASM。
+- CMake、Ninja，用于构建 x265。
 - 支持 7z 格式的 `tar`。
 
-已验证工具链：GCC 14.2.0、NASM 2.16.01。源码和 FFmpeg 开发包的版本、下载地址及校验值记录在 [dependencies.lock.json](dependencies.lock.json)。
+已验证工具链：GCC 14.2.0、NASM 2.16.01、CMake 3.30.4、Ninja 1.12.1。源码和 FFmpeg 开发包的版本、下载地址及校验值记录在 [dependencies.lock.json](dependencies.lock.json)。
 
 脚本默认从 PATH 和 Git 安装目录查找工具。需要手动指定时，设置以下环境变量：
 
@@ -57,6 +60,9 @@
 |---|---|
 | `MARUKO_BASH` | Git Bash 的 `bash.exe` 路径 |
 | `MARUKO_TOOLCHAIN` | MinGW-w64 的 `bin` 目录 |
+| `MARUKO_BUILD_CACHE` | 可选的 ASCII 路径构建缓存，用于含非 ASCII 路径的 x265 源码 |
+
+NASM 对部分非 ASCII 路径存在编码问题。源码路径包含非 ASCII 字符时，脚本自动在 Windows Public 目录中创建 ASCII 路径缓存和源码目录联接，也可通过 `MARUKO_BUILD_CACHE` 指定位置。
 
 ### 构建步骤
 
@@ -65,7 +71,7 @@
 ```powershell
 python scripts/project.py doctor
 python scripts/project.py prepare
-python scripts/project.py build --bit-depth 8
+python scripts/project.py build --encoder all --bit-depth 8
 python scripts/project.py verify --bit-depth 8 --toolbox "<小丸安装目录>"
 python scripts/project.py package --bit-depth 8
 ```
@@ -76,7 +82,7 @@ python scripts/project.py package --bit-depth 8
 |---|---|
 | `doctor` | 检查构建工具 |
 | `prepare` | 获取固定版本依赖、校验开发包并应用补丁 |
-| `build` | 编译 x264 64 位 8bit 编码器 |
+| `build` | 编译 x264、x265 64 位 8bit 编码器；可用 `--encoder x264` 或 `--encoder x265` 单独构建 |
 | `verify` | 使用自动生成的素材验证输入、输出及集成 |
 | `package` | 检查产物验证记录，生成 ZIP 和 SHA256 文件 |
 
@@ -100,7 +106,7 @@ dist/*.zip                 release 候选包
 
 ## 已完成验证
 
-8 项自动化检查通过，覆盖 FFmpeg 版本、中文 MP4 输入、CRF 压制、8bit 输出、缩放、字幕烧录、AAC 提取与转码、原 MP4Box 合并及输出解码。另已收到小丸界面中一次单视频正常压制的试用反馈。
+13 项自动化检查通过，覆盖 FFmpeg 版本、x264 中文 MP4 输入、x265 原参数与 Y4M 管道、8bit 输出、两条工作流的缩放与字幕、AAC 提取与转码、原 MP4Box 合并及输出解码。x264 另有一次小丸界面单视频正常压制的试用反馈。
 
 详细能力见 [兼容性说明](docs/COMPATIBILITY.md)。更新依赖和维护 release 的步骤见 [维护流程](docs/MAINTENANCE.md)。
 
@@ -109,6 +115,7 @@ dist/*.zip                 release 候选包
 - https://maruko.appinn.me/7mod.html
 - https://maruko.appinn.me/7mod_feature.html
 - https://github.com/jpsdr/x264/tree/t_mod_New
+- https://bitbucket.org/multicoreware/x265_git/
 - https://github.com/l-smash/l-smash
 - https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2
 

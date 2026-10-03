@@ -1,6 +1,13 @@
 {
   "schema": 1,
   "x264": {"url": "https://github.com/jpsdr/x264.git", "branch": "t_mod_New", "commit": "ba817a33001f0179d5905eb25b8b64214d95341c", "version": "0.165.3223+83M"},
+  "x265": {
+    "url": "https://bitbucket.org/multicoreware/x265_git.git",
+    "commit": "b81f650e21e8aacbe6a9ad04ce14aefc05b932c0",
+    "source_url": "https://bitbucket.org/multicoreware/x265_git/src/b81f650e21e8aacbe6a9ad04ce14aefc05b932c0/",
+    "version": "4.2+37-b81f650e2",
+    "executable": "x265_64-8bit[gcc].exe"
+  },
   "lsmash": {"url": "https://github.com/l-smash/l-smash.git", "commit": "18a9ed25c7ff79a7f4f4bf850c345c72179b8998", "version": "2.16.1"},
   "ffmpeg": {
     "version": "9.0.2",
@@ -11,5 +18,5 @@
     "runtime_executables": ["ffmpeg.exe"],
     "runtime_dlls": ["avcodec-63.dll", "avdevice-63.dll", "avfilter-12.dll", "avformat-63.dll", "avutil-61.dll", "swresample-7.dll", "swscale-10.dll"]
   },
-  "build": {"platform": "windows-x64", "verified_bit_depths": [8], "gcc": "14.2.0", "nasm": "2.16.01", "internal_audio": false, "ffms": false, "avisynth": false}
+  "build": {"platform": "windows-x64", "verified_bit_depths": [8], "gcc": "14.2.0", "nasm": "2.16.01", "cmake": "3.30.4", "ninja": "1.12.1", "internal_audio": false, "ffms": false, "avisynth": false}
 }

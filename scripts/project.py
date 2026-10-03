@@ -1,5 +1,6 @@
 """Local build, verification and release packaging; never installs or publishes."""
 import argparse
+import base64
 import ctypes
 import datetime as dt
 import hashlib
@@ -41,9 +42,13 @@ def exe(depth):
     return TOOLS / f'x264_64-{depth}bit.exe'
 
 
+def x265_exe():
+    return TOOLS / LOCK['x265']['executable']
+
+
 def payload(depth):
     runtime = LOCK['ffmpeg']['runtime_executables'] + LOCK['ffmpeg']['runtime_dlls']
-    return [exe(depth), *(TOOLS / name for name in runtime)]
+    return [exe(depth), x265_exe(), *(TOOLS / name for name in runtime)]
 
 
 def hashes(depth):
@@ -79,7 +84,8 @@ def doctor():
     if target != 'x86_64-w64-mingw32':
         raise RuntimeError(f'A Windows x64 MinGW-w64 toolchain is required; found {target}.')
     for name, flag in [('gcc.exe', '-dumpversion'), ('nasm.exe', '-v'),
-                       ('mingw32-make.exe', '--version')]:
+                       ('mingw32-make.exe', '--version'), ('cmake.exe', '--version'),
+                       ('ninja.exe', '--version')]:
         text = run([chain / name, flag]).stdout.decode(errors='replace')
         print(f'{name}: {text.splitlines()[0]}', flush=True)
     for name in ['git', 'tar']:
@@ -91,7 +97,7 @@ def doctor():
 
 def prepare():
     VENDOR.mkdir(exist_ok=True)
-    for key, folder in [('x264', 'x264'), ('lsmash', 'l-smash')]:
+    for key, folder in [('x264', 'x264'), ('x265', 'x265'), ('lsmash', 'l-smash')]:
         dep, dest = LOCK[key], VENDOR / folder
         if not dest.exists():
             run(['git', 'clone', dep['url'], dest])
@@ -135,7 +141,40 @@ def prepare():
     print('Pinned sources, FFmpeg development package and patches ready.', flush=True)
 
 
-def build(depth):
+def build_x265(chain):
+    source, directory = VENDOR / 'x265', BUILD / 'x265-8'
+    if not str(source).isascii():
+        cache = Path(os.environ.get('MARUKO_BUILD_CACHE',
+                                    str(Path(os.environ['PUBLIC']) / 'maruko_tool_update-build')))
+        if not str(cache).isascii():
+            raise RuntimeError('MARUKO_BUILD_CACHE must use an ASCII path for NASM.')
+        cache.mkdir(parents=True, exist_ok=True)
+        identity = hashlib.sha256(str(source).encode('utf-8')).hexdigest()[:8]
+        alias = cache / f'x265-{LOCK["x265"]["commit"][:8]}-{identity}-source'
+        if alias.exists():
+            if alias.resolve() != source.resolve():
+                raise RuntimeError('Existing x265 source alias points to another directory.')
+        else:
+            quote = lambda p: "'" + str(p).replace("'", "''") + "'"
+            script = f'New-Item -ItemType Junction -Path {quote(alias)} -Target {quote(source)} | Out-Null'
+            encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
+            run(['powershell.exe', '-NoProfile', '-EncodedCommand', encoded])
+        source, directory = alias, cache / f'x265-{LOCK["x265"]["commit"][:8]}-{identity}-8'
+    BUILD.mkdir(exist_ok=True)
+    cmake = chain / 'cmake.exe'
+    args = [cmake, '-S', source / 'source', '-B', directory, '-G', 'Ninja',
+            '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_COMPILER=' + (chain / 'gcc.exe').as_posix(),
+            '-DCMAKE_CXX_COMPILER=' + (chain / 'g++.exe').as_posix(),
+            '-DCMAKE_MAKE_PROGRAM=' + (chain / 'ninja.exe').as_posix(),
+            '-DENABLE_SHARED=OFF', '-DENABLE_CLI=ON', '-DHIGH_BIT_DEPTH=OFF',
+            '-DENABLE_ASSEMBLY=ON', '-DSTATIC_LINK_CRT=ON', '-DCMAKE_EXE_LINKER_FLAGS=-static']
+    run(args, log=BUILD / 'logs' / 'x265-configure.log')
+    run([cmake, '--build', directory, '--parallel', '8'], log=BUILD / 'logs' / 'x265-build.log')
+    shutil.copy2(directory / 'x265.exe', x265_exe())
+    print(run([x265_exe(), '--version']).stderr.decode(errors='replace'), flush=True)
+
+
+def build(depth, encoder='all'):
     bash, chain = doctor()
     prepare()
     buffer = ctypes.create_unicode_buffer(32768)
@@ -145,10 +184,15 @@ def build(depth):
     if ' ' in shell:
         raise RuntimeError('GNU make needs a Bash path without spaces; use a suitable MARUKO_BASH path.')
     env = dict(os.environ, MARUKO_TOOLCHAIN=str(chain), MARUKO_MAKE_SHELL=shell)
-    run([bash, ROOT / 'scripts' / 'build.sh', depth], env=env, log=BUILD / 'logs' / 'build-driver.log')
+    TOOLS.mkdir(parents=True, exist_ok=True)
+    if encoder in ['all', 'x264']:
+        run([bash, ROOT / 'scripts' / 'build.sh', depth], env=env, log=BUILD / 'logs' / 'build-driver.log')
+    if encoder in ['all', 'x265']:
+        build_x265(chain)
     for name in LOCK['ffmpeg']['runtime_executables'] + LOCK['ffmpeg']['runtime_dlls']:
         shutil.copy2(VENDOR / 'ffmpeg' / 'bin' / name, TOOLS / name)
-    print(run([exe(depth), '--version']).stdout.decode(errors='replace'), flush=True)
+    if encoder in ['all', 'x264']:
+        print(run([exe(depth), '--version']).stdout.decode(errors='replace'), flush=True)
 
 
 def verify(depth, toolbox):
@@ -186,16 +230,69 @@ def verify(depth, toolbox):
         cases.append({'name': name, 'passed': True})
         return output
 
+    def encode_hevc(name, filters, width, height):
+        output = work / f'{name}.hevc'
+        encoder = ['--y4m', '--crf', '24', '--preset', 'slower', '--tu-intra-depth', '3',
+                   '--tu-inter-depth', '3', '--rdpenalty', '2', '--me', '3', '--subme', '5',
+                   '--merange', '44', '--b-intra', '--no-rect', '--no-amp', '--ref', '5',
+                   '--weightb', '--bframes', '8', '--aq-mode', '1', '--aq-strength', '1.0',
+                   '--rd', '5', '--psy-rd', '0.7', '--psy-rdoq', '5.0', '--rdoq-level', '1',
+                   '--no-sao', '--no-open-gop', '--rc-lookahead', '80', '--scenecut', '40',
+                   '--max-merge', '4', '--qcomp', '0.7', '--no-strong-intra-smoothing',
+                   '--deblock', '-1:-1', '--qg-size', '16', '--frames', '60', '-o', str(output), '-']
+        decoder_args = [str(runtime), '-hide_banner', '-nostdin', '-i', str(fixture), *filters,
+                        '-strict', '-1', '-f', 'yuv4mpegpipe', '-an', '-']
+        with (work / f'{name}-decoder.log').open('wb') as log:
+            decoder = subprocess.Popen(decoder_args, cwd=work, stdout=subprocess.PIPE, stderr=log)
+            try:
+                result = subprocess.run([str(x265_exe()), *encoder], stdin=decoder.stdout,
+                                        cwd=work, capture_output=True, timeout=120)
+            finally:
+                decoder.stdout.close()
+                try:
+                    decoder_status = decoder.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    decoder.kill()
+                    decoder.wait()
+                    raise RuntimeError(f'{name}: decoder did not finish.')
+        (work / f'{name}.log').write_bytes(result.stdout + result.stderr)
+        if result.returncode or decoder_status:
+            raise RuntimeError(f'{name}: FFmpeg/x265 pipeline failed: ' +
+                               result.stderr.decode(errors='replace')[-1500:])
+        data = ffprobe(output)
+        stream = next(s for s in data['streams'] if s['codec_type'] == 'video')
+        if (stream['codec_name'], stream['pix_fmt'], stream['width'], stream['height']) != (
+                'hevc', 'yuv420p', width, height):
+            raise RuntimeError(f'{name}: unexpected codec, bit depth or dimensions.')
+        counted = run([VENDOR / 'ffmpeg' / 'bin' / 'ffprobe.exe', '-v', 'error', '-count_frames',
+                       '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames',
+                       '-of', 'json', output])
+        if int(json.loads(counted.stdout)['streams'][0]['nb_read_frames']) != 60:
+            raise RuntimeError(f'{name}: frame count differs from input.')
+        cases.append({'name': name, 'passed': True})
+        return output
+
     try:
         cases.append({'name': 'packaged-ffmpeg-version', 'passed': True})
         plain = encode('direct-input', [], 320, 180)
         encode('resize', ['--vf', 'resize:160,90,,,,lanczos'], 160, 90)
+        version = run([x265_exe(), '--version'], log=work / 'x265-version.log')
+        if LOCK['x265']['version'] not in (version.stdout + version.stderr).decode(errors='replace'):
+            raise RuntimeError('Packaged x265 version differs from lock.')
+        cases.append({'name': 'packaged-x265-version', 'passed': True})
+        hevc = encode_hevc('x265-original-parameters', [], 320, 180)
+        encode_hevc('x265-zscale', ['-vf', 'zscale=160x90:filter=lanczos'], 160, 90)
         if toolbox and (toolbox / 'tools' / 'VSFilter64.dll').is_file():
             subtitles = work / 'compatibility.srt'
             subtitles.write_text('1\n00:00:00,000 --> 00:00:02,000\nmaruko_tool_update\n', encoding='utf-8')
             burned = encode('subtitles', ['--sub', str(subtitles), '--vf', 'subtitles'], 320, 180)
             run([runtime, '-v', 'error', '-y', '-ss', '0.5', '-i', burned,
                  '-frames:v', '1', work / 'subtitle-check.png'])
+            burned_hevc = encode_hevc('x265-subtitles', ['-vf', 'subtitles=compatibility.srt'], 320, 180)
+            run([runtime, '-v', 'error', '-y', '-i', burned_hevc, '-ss', '0.5',
+                 '-frames:v', '1', work / 'x265-subtitle-check.png'])
+            if not (work / 'x265-subtitle-check.png').is_file():
+                raise RuntimeError('x265 subtitle inspection frame was not generated.')
         else:
             skipped.append('Original VSFilter64 subtitle integration; no toolbox provided.')
         audio = work / 'audio.aac'
@@ -222,6 +319,23 @@ def verify(depth, toolbox):
             if abs(float(data['format']['duration']) - 2) > 0.1:
                 raise RuntimeError('Unexpected muxed duration.')
             cases.append({'name': 'external-audio-and-original-MP4Box', 'passed': True})
+            hevc_muxed = work / 'x265-muxed.mp4'
+            run([toolbox / 'tools' / 'MP4Box.exe', '-add', str(hevc), '-add', str(audio),
+                 '-new', hevc_muxed], log=work / 'x265-mux.log')
+            data = ffprobe(hevc_muxed)
+            if [s['codec_name'] for s in data['streams']] != ['hevc', 'aac']:
+                raise RuntimeError('x265 MP4Box output must contain HEVC and AAC.')
+            video_track, audio_track = data['streams']
+            if (abs(float(video_track['duration']) - 2) > 0.001 or
+                    abs(float(audio_track['duration']) - 2) > 0.06 or
+                    video_track['r_frame_rate'] != '30/1'):
+                raise RuntimeError('x265 MP4Box tracks have unexpected duration or frame rate.')
+            report['x265_mux_timing'] = {
+                'video_start': video_track['start_time'], 'audio_start': audio_track['start_time'],
+                'video_duration': video_track['duration'], 'audio_duration': audio_track['duration'],
+                'container_duration': data['format']['duration']}
+            run([runtime, '-v', 'error', '-i', hevc_muxed, '-f', 'null', '-'], log=work / 'x265-decode.log')
+            cases.append({'name': 'x265-original-MP4Box-mux-and-decode', 'passed': True})
         else:
             skipped.append('Original MP4Box integration; no toolbox provided.')
         run([runtime, '-v', 'error', '-i', plain, '-f', 'null', '-'], log=work / 'decode.log')
@@ -245,6 +359,7 @@ def package(depth):
     licenses = overlay / 'licenses'
     licenses.mkdir(exist_ok=True)
     for source, name in [(VENDOR / 'x264' / 'COPYING', 'COPYING-x264.txt'),
+                         (VENDOR / 'x265' / 'COPYING', 'COPYING-x265.txt'),
                          (VENDOR / 'ffmpeg' / 'LICENSE', 'LICENSE-FFmpeg.txt'),
                          (VENDOR / 'l-smash' / 'LICENSE', 'LICENSE-L-SMASH.txt')]:
         shutil.copy2(source, licenses / name)
@@ -260,7 +375,8 @@ def package(depth):
                                 '7mod keyint auto not restored', 'not a complete original 7mod reproduction']}
     (overlay / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     version = LOCK['x264']['version'].replace('+', '_').replace('.', '_')
-    name = (f'maruko_tool_update-x264-x64-{depth}bit-{version}'
+    hevc_version = LOCK['x265']['version'].replace('+', '_')
+    name = (f'maruko_tool_update-x64-{depth}bit-x264-{version}-x265-{hevc_version}'
             f'-ffmpeg-{LOCK["ffmpeg"]["version"]}-{dt.date.today():%Y%m%d}.zip')
     archive = ROOT / 'dist' / name
     files = [*payload(depth), overlay / 'README.md', overlay / 'manifest.json',
@@ -279,12 +395,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['doctor', 'prepare', 'build', 'verify', 'package'])
     parser.add_argument('--bit-depth', type=int, choices=[8], default=8)
+    parser.add_argument('--encoder', choices=['all', 'x264', 'x265'], default='all',
+                        help='Select encoders for the build command; verification/package cover the complete bundle.')
     parser.add_argument('--toolbox', type=Path)
     args = parser.parse_args()
     if args.command in ['doctor', 'prepare']:
         globals()[args.command]()
     elif args.command == 'verify':
         verify(args.bit_depth, args.toolbox.resolve() if args.toolbox else None)
+    elif args.command == 'build':
+        build(args.bit_depth, args.encoder)
     else:
         globals()[args.command](args.bit_depth)
 
