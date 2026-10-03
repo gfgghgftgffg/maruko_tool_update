@@ -173,7 +173,7 @@ def verify(depth, toolbox):
     env = dict(os.environ)
     if toolbox:
         env['PATH'] = str(toolbox / 'tools') + os.pathsep + env.get('PATH', '')
-    expected = 'yuv420p' if depth == 8 else 'yuv420p10le'
+    expected = 'yuv420p'
 
     def encode(name, extra, width, height):
         output = work / f'{name}.mp4'
@@ -278,7 +278,7 @@ def package(depth):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['doctor', 'prepare', 'build', 'verify', 'package'])
-    parser.add_argument('--bit-depth', type=int, choices=[8, 10], default=8)
+    parser.add_argument('--bit-depth', type=int, choices=[8], default=8)
     parser.add_argument('--toolbox', type=Path)
     args = parser.parse_args()
     if args.command in ['doctor', 'prepare']:

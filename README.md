@@ -9,15 +9,13 @@
 | 组件 | 状态 |
 |---|---|
 | Windows x64 / x264 8bit | 已构建并通过命令行兼容性验证 |
-| Windows x64 / x264 10bit | 提供构建入口，尚未验证 |
 | Windows x64 / FFmpeg 9.0.2 | 提供独立 ffmpeg.exe 及运行依赖 |
-| 32 位、x265 | 暂未支持 |
 
-当前编码器基于 x264 的 `t_mod_New` 分支，保留额外 AQ、视觉优化、字幕和滤镜扩展，使用 FFmpeg 9.0.2 库读取视频和进行缩放。它不是原小丸 7mod 的完整复刻，具体兼容范围见下文。
+编码器基于 x264 的 `t_mod_New` 分支，保留额外 AQ、视觉优化、字幕和滤镜扩展，使用 FFmpeg 9.0.2 库读取视频和进行缩放。
 
 ## 安装更新包
 
-1. 在仓库 Releases 页面选择所需位深的更新包并解压。
+1. 在 [Releases](https://github.com/gfgghgftgffg/maruko_tool_update/releases) 页面下载更新包并解压。
 2. 退出小丸工具箱，备份将被覆盖的原文件。
 3. 将包内 `tools/` 的全部文件复制到小丸安装目录的 `tools/`，覆盖同名文件。
 4. 启动小丸，选择对应编码器。
@@ -36,7 +34,7 @@
 | `swresample-7.dll` | FFmpeg 库的间接依赖 |
 | `swscale-10.dll` | 缩放和像素格式转换 |
 
-九个文件必须一起使用。字幕继续使用小丸原有 `VSFilter64.dll`，最终合并继续使用原 `MP4Box.exe`。音频处理改由包内的新版 `ffmpeg.exe` 执行。当前包不替换 UI、设置文件、其他位深或其他编码器。
+九个文件必须一起使用。字幕继续使用小丸原有 `VSFilter64.dll`，最终合并继续使用原 `MP4Box.exe`。音频处理由包内的新版 `ffmpeg.exe` 执行。
 
 未来依赖升级可能改变 DLL 名称；以当次 manifest 和 README 为准，不混用不同包的 EXE、DLL。恢复时还原备份的 x264 和 ffmpeg.exe，不盲目删除其他工具可能使用的 DLL。
 
@@ -78,11 +76,11 @@ python scripts/project.py package --bit-depth 8
 |---|---|
 | `doctor` | 检查构建工具 |
 | `prepare` | 获取固定版本依赖、校验开发包并应用补丁 |
-| `build` | 编译指定输出位深的编码器 |
+| `build` | 编译 x264 64 位 8bit 编码器 |
 | `verify` | 使用自动生成的素材验证输入、输出及集成 |
 | `package` | 检查产物验证记录，生成 ZIP 和 SHA256 文件 |
 
-构建 10bit 时使用 `--bit-depth 10`，产物为 `x264_64-10bit.exe`，需要单独验证。输出归档位于 `dist/`；包含编码器、运行 DLL、安装说明、manifest 和许可证。脚本不会自动安装或上传 release。
+输出归档位于 `dist/`，包含编码器、FFmpeg、运行 DLL、安装说明、manifest 和许可证。构建脚本负责生成文件，release 由维护者上传。
 
 ## 项目结构
 
@@ -100,9 +98,9 @@ dist/overlay/              tools、说明、manifest 和许可证
 dist/*.zip                 release 候选包
 ```
 
-## 验证与限制
+## 已完成验证
 
-已验证 CRF 压制、中文 MP4 输入、8bit 输出、缩放、字幕烧录、包内 FFmpeg 的 AAC 提取与转码，以及原 MP4Box 合并。小丸 UI、批量、取消、其他 FFmpeg 页面及广泛素材兼容性尚未完成验证；FFMS、AviSynth 和 7mod `keyint auto` 尚未恢复。当前更新包为候选版本。
+8 项自动化检查通过，覆盖 FFmpeg 版本、中文 MP4 输入、CRF 压制、8bit 输出、缩放、字幕烧录、AAC 提取与转码、原 MP4Box 合并及输出解码。另已收到小丸界面中一次单视频正常压制的试用反馈。
 
 详细能力见 [兼容性说明](docs/COMPATIBILITY.md)。更新依赖和维护 release 的步骤见 [维护流程](docs/MAINTENANCE.md)。
 

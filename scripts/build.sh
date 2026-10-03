@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 project_root="$PWD"
 bit_depth="${1:-8}"
-case "$bit_depth" in 8|10) ;; *) echo 'Supported depths: 8, 10' >&2; exit 2;; esac
+case "$bit_depth" in 8) ;; *) echo 'Supported depth: 8' >&2; exit 2;; esac
 export PATH="$project_root/vendor/ffmpeg/bin:$(cygpath -u "$MARUKO_TOOLCHAIN"):$PATH"
 mkdir -p build/logs dist/overlay/tools
 cd vendor/l-smash
