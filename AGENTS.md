@@ -4,7 +4,7 @@
 
 持续维护小丸工具箱调用的命令行工具，交付按原路径覆盖的 release 包。保留 UI、用户参数和原文件名，不自行重写 UI 或调整压制偏好。
 
-EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、ffmpeg.exe 等小丸原名，不加 modern、new 后缀。运行 DLL 随 tools 交付；源码、开发包、测试视频和个人路径不进入 release。
+EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、x265_64-10bit[gcc].exe、ffmpeg.exe 等小丸原名，不加 modern、new 后缀。运行 DLL 随 tools 交付；源码、开发包、测试视频和个人路径不进入 release。
 
 没有明确授权，不修改现有小丸，不发布 release、上传资产或替换系统 FFmpeg。项目内构建、修复、验证和准备候选 ZIP 可直接进行。
 
@@ -15,9 +15,9 @@ EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、ffmpeg.exe 等小丸原名
 - 覆盖包还包含同一构建的独立 ffmpeg.exe 与全部七个运行 DLL。修改版本或依赖时同时维护 EXE、DLL 清单及音频测试。
 - L-SMASH 提供 MP4 输出。关闭旧内部音频代码，保留小丸外部 FFmpeg、MP4Box 工作流。
 - patches 中补丁在关闭音频时跳过旧 lsmash_importer.h，没有改变编码算法。
-- x265 来自官方 Bitbucket 仓库的固定提交。小丸使用 FFmpeg → Y4M → x265 → 原 MP4Box 工作流；测试参数来自小丸的实际命令生成逻辑。静态编译 64 位 8bit，保留完整原参数，不用 libx265 命令代替独立程序。
-- 当前交付 Windows x64 的 x264、x265 8bit 和 FFmpeg。公开说明只描述已经实现、交付和验证的内容。
-- x264 输入采用 lavf，x265 输入采用 Y4M 管道。验证覆盖 13 项自动化检查；x264 另有一次单视频 UI 试用反馈，不要扩大验证结论。
+- x265 来自官方 Bitbucket 仓库的固定提交。小丸使用 FFmpeg → Y4M → x265 → 原 MP4Box 工作流；测试参数来自小丸的实际命令生成逻辑。静态编译 64 位 8bit 与 10bit，保留完整原参数，不用 libx265 命令代替独立程序；两者只是 `HIGH_BIT_DEPTH` 编译开关不同，命令行接口一致。
+- 当前交付 Windows x64 的 x264 8bit、x265 8bit/10bit 和 FFmpeg。公开说明只描述已经实现、交付和验证的内容。
+- x264 输入采用 lavf，x265 输入采用 Y4M 管道。验证覆盖 18 项自动化检查；x264 另有一次单视频 UI 试用反馈，不要扩大验证结论。
 - 原 MP4Box 对 HEVC B 帧产生重排起始偏移；测试旧、新 x265 的轨道时间一致。检查有效轨道时长和帧率，不能拿容器总时长与视频时长简单作差。
 
 ## 环境

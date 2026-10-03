@@ -20,7 +20,7 @@
 
 ## release 约定
 
-ZIP 名为 `maruko_tool_update-x64-8bit-x264-<x264版本>-x265-<x265版本>-ffmpeg-<FFmpeg版本>-<日期>.zip`；EXE 始终保留原名称。
+ZIP 名为 `maruko_tool_update-x64-x264-8bit-<x264版本>-x265-8bit-10bit-<x265版本>-ffmpeg-<FFmpeg版本>-<日期>.zip`；EXE 始终保留原名称。
 
 构建脚本只生成归档。维护者完成验收后创建 GitHub release 并上传资产，版本说明列出更新组件、覆盖清单、验证和限制。
 
