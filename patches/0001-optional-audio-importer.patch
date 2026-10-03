@@ -1,0 +1,14 @@
+diff --git a/output/mp4_lsmash.c b/output/mp4_lsmash.c
+index c7e9f276..466853d2 100644
+--- a/output/mp4_lsmash.c
++++ b/output/mp4_lsmash.c
+@@ -29,7 +29,9 @@
+ 
+ #include "output.h"
+ #include <lsmash.h>
++#if HAVE_AUDIO
+ #include <lsmash_importer.h>
++#endif
+ 
+ #define H264_NALU_LENGTH_SIZE 4
+ 
