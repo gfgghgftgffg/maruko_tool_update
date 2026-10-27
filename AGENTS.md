@@ -2,7 +2,7 @@
 
 ## 项目目标
 
-持续维护小丸工具箱调用的命令行工具，交付按原路径覆盖的 release 包。保留 UI、用户参数和原文件名，不自行重写 UI 或调整压制偏好。
+维护两条独立入口：小丸工具箱的命令行工具构建与覆盖包，以及根目录的 x265 / AV1 独立压制界面。保留小丸原 UI、原文件名和用户压制偏好；独立界面不改造小丸本体。
 
 EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、x265_64-10bit[gcc].exe、ffmpeg.exe 等小丸原名，不加 modern、new 后缀。运行 DLL 随 tools 交付；源码、开发包、测试视频和个人路径不进入 release。
 
@@ -22,7 +22,7 @@ EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、x265_64-10bit[gcc].exe、f
 
 ## 环境
 
-使用 Python 3.11 或更高版本，管理脚本仅依赖标准库。虚拟环境和 Python 安装方式由开发者选择，项目不绑定个人解释器路径。
+使用 Python 3.11 或更高版本；管理脚本和编码核心仅依赖标准库，界面使用 Tk 与 requirements.txt 中的 tkinterdnd2。虚拟环境和 Python 安装方式由开发者选择，项目不绑定个人解释器路径。所有平台启动器支持 MARUKO_PYTHON、激活环境和项目 .venv；Windows 使用 .cmd，macOS 提供 .command，macOS/Linux 提供 .sh。
 
 构建依赖 Git Bash、MinGW-w64 GCC、mingw32-make、NASM、CMake、Ninja、Windows tar。MARUKO_BASH 和 MARUKO_TOOLCHAIN 可指定路径。x265 在非 ASCII 源码路径下使用 Public 目录的 ASCII 构建缓存和目录联接；MARUKO_BUILD_CACHE 可指定缓存位置。不要删除目录联接所指向的源码。
 
@@ -34,6 +34,17 @@ EXE 使用 x264_64-8bit.exe、x265_64-8bit[gcc].exe、x265_64-10bit[gcc].exe、f
 4. 每个位深独立验证，报告绑定 EXE 和 DLL 哈希。修订扩展时同步补丁、能力声明和验证入口。
 5. 包内文件名直接对应小丸，manifest 记录来源、版本、哈希、验证结果和缺口。
 6. 命令行验证不等于 UI、所有格式或画质速度验证。发布前执行 docs/MAINTENANCE.md 的验收；缺口尚在就明确标为候选。
+
+## 独立压制工具
+
+- gui.py 与 encode.py 只提供 x265、SVT-AV1。x264 仅保留在原有构建流程中。默认 10bit，界面编码器标签必须显示实际位深。
+- config.example.json 是可入库模板；config.json 是个人配置，不入库。迁移和重构不改用户 CRF 或高级画质参数；AV1 闭合 GOP 和随机访问检查属于兼容性保护。
+- GUI 与 CLI 共用 resolve_paths；优先显式配置，其后查找项目工具目录、构建产物、vendor 和 PATH。不要在代码里写个人绝对路径。
+- UI 保持简洁，只保留操作项和必要状态，不添加“保留你的参数”等解释性文案。
+- 工具路径通过界面“工具设置”或本地 config.json 配置；check_tools.py --smoke 用合成短片检查版本、参数兼容性与位深。工具二进制不通过 pip 安装，跨平台说明见 docs/TOOLS.md。
+- 运行 python -m unittest test_encode test_gui test_tools -v；GUI 测试需要桌面会话。测试通过不等于 macOS/Linux 已验收，也不等于小丸原 UI 已验收。
+- jobs、research、compare_1080p、个人测试视频及旧配置备份不属于项目目录，应放在项目外，不只是用 .gitignore 隐藏。个人 config.json、.venv 以及标准 build、vendor、dist 产物不提交、不推送。提交前检查 git status 和忽略规则；发布前检查归档显式文件清单。
+- scripts/project.py package 仍仅打包小丸工具覆盖包，不自动包含独立压制界面，也不自动发布。
 
 ## 清理
 

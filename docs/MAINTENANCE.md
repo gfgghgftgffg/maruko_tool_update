@@ -18,6 +18,14 @@
 - 随包保留上游构建信息及本项目补丁；提供明确的对应源码访问方式。GPLv3 第 6(d) 条允许源码放在其他服务器，但下载页面须给出清楚指引，维护者仍负责确保源码可获取。来源网站链接不能代替对应源码链接，FFmpeg full 构建所需第三方组件也需核对。
 - 检查 manifest、文件哈希和最终归档 SHA256。
 
+## 独立压制工具维护
+
+- 修改 GUI、编码核心或工具发现逻辑后，在项目根目录运行 `python -m unittest test_encode test_gui test_tools -v`。GUI 测试需要桌面环境。
+- 保持用户 CRF 与高级画质参数不变；默认 x265 10bit，并在界面显示实际位深。界面不添加面向用户的解释性承诺文案。
+- `config.example.json` 可入库；`config.json`、.venv、build、vendor、dist 不入库。jobs、research、compare_1080p、实验素材和备份配置应放在项目外。用 `git status --untracked-files=all` 和 `git check-ignore` 检查，不能只凭目录已加到 .gitignore 推断安全。
+- 三个平台的启动器保持同步，shell 脚本与 .command 使用 LF 和可执行权限；先验证参数引用，再在目标平台实际验收。外部工具检查运行 `python check_tools.py --smoke`。
+- 若以后为界面制作独立安装包，需单独定义依赖、文件清单、许可证和验收；不要把本地目录整体递归塞进更新包。现有 package 命令仍只生成小丸工具覆盖包。
+
 ## release 约定
 
 ZIP 名为 `maruko_tool_update-x64-x264-8bit-<x264版本>-x265-8bit-10bit-<x265版本>-ffmpeg-<FFmpeg版本>-<日期>.zip`；EXE 始终保留原名称。

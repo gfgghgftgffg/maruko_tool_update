@@ -1,0 +1,71 @@
+{
+  "tools_dir": "",
+  "ffprobe": "",
+  "encoder": "svt-av1",
+  "bit_depth": 10,
+  "audio": "copy",
+  "container": "mp4",
+  "profiles": {
+    "x265": {
+      "path": "",
+      "params": [
+        "--crf",
+        "23",
+        "--preset",
+        "slow",
+        "--ref",
+        "6",
+        "-b",
+        "6",
+        "-I",
+        "60",
+        "-i",
+        "1",
+        "--scenecut",
+        "40",
+        "--deblock",
+        "-1:-1",
+        "--qcomp",
+        "0.7",
+        "--weightb",
+        "--b-intra",
+        "--rd",
+        "3",
+        "--psy-rd",
+        "2.0",
+        "--psy-rdoq",
+        "0",
+        "--aq-mode",
+        "4",
+        "--aq-strength",
+        "0.8",
+        "--cbqpoffs",
+        "-2",
+        "--crqpoffs",
+        "-2",
+        "--no-sao"
+      ]
+    },
+    "svt-av1": {
+      "params": [
+        "-preset",
+        "5",
+        "-crf",
+        "28",
+        "-svtav1-params",
+        "tune=0:aq-mode=2:enable-variance-boost=1:variance-boost-strength=2:variance-octile=5:ac-bias=1.0:qp-scale-compress-strength=0:enable-tf=0:enable-kf-tf=0:film-grain=0:max-tx-size=32:enable-qm=0:enable-dlf=1:sharpness=0:enable-cdef=1:enable-restoration=1:key-frame-chroma-qindex-offset=-4:chroma-qindex-offsets=[-4,-4,-4,-4,-4,-4]:pred-struct=2:hierarchical-levels=4:keyint=60:irefresh-type=2:scd=0"
+      ]
+    }
+  },
+  "ui": {
+    "encoders": [
+      "svt-av1"
+    ],
+    "files": [],
+    "folder": "",
+    "output": "",
+    "recursive": false
+  },
+  "ffmpeg": "",
+  "mp4box": ""
+}

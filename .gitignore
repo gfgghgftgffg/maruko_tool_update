@@ -4,3 +4,16 @@
 /.cache/
 __pycache__/
 *.pyc
+/.venv/
+
+# Local encoding settings, jobs and optional tools
+/config.json
+/config.before-*.json
+/jobs/
+/tools/
+**/encoded/
+**/.encode-*/
+
+# Local experiments, downloads and research are not repository content
+/compare_1080p/
+/research/
